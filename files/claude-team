@@ -1,0 +1,51 @@
+#!/bin/sh
+# claude-team：用 Team 账号启动 Claude Code（配置和登录信息在 ~/.claude-team）。
+# 个人账号照常用 claude（~/.claude）。由 user-env/setup-terminal-env.sh 安装，重新运行安装脚本会覆盖本文件。
+# claude-team-wrapper-v1
+#
+# 可选环境变量：
+#   CLAUDE_TEAM_TMUX_STYLE  tmux 中 Team 窗格的样式，默认 bg=#2b1a3a；设为 none 则只做标记、不改颜色
+
+# 内部用：由 tmux 在后台运行，等 claude 进程退出后撤销窗格标记和颜色。
+if [ "${1-}" = --claude-team-tmux-restore ]; then
+  sock=$2 pane=$3 pid=$4 styled=$5
+  while kill -0 "$pid" 2>/dev/null; do sleep 1; done
+  undo="set-option -pu -t $pane @claude_profile ; set-option -pu -t $pane @claude_team_pid"
+  if [ "$styled" = 1 ]; then
+    undo="set-option -pu -t $pane window-style ; set-option -pu -t $pane window-active-style ; $undo"
+  fi
+  # 同一窗格里可能已经开了新的 Team 会话：只有标记仍是自己的 PID 时才撤销。
+  # 比对和撤销在 tmux 服务器里一步完成，中间插不进新会话的设置。
+  tmux -S "$sock" if-shell -F -t "$pane" "#{==:#{@claude_team_pid},$pid}" "$undo" >/dev/null 2>&1
+  exit 0
+fi
+
+team_dir=$HOME/.claude-team
+[ -d "$team_dir" ] || mkdir -m 700 "$team_dir" || exit 1
+CLAUDE_CONFIG_DIR=$team_dir
+export CLAUDE_CONFIG_DIR
+
+# 只装饰交互式会话；管道、重定向和脚本调用的输出保持原样
+if [ -t 0 ] && [ -t 1 ]; then
+  if [ -t 2 ]; then
+    printf '\033[1;97;45m TEAM \033[0;35m Claude Code · Team 账号（%s）\033[0m\n' "$team_dir" >&2
+  fi
+  if [ -n "${TMUX-}" ] && [ -n "${TMUX_PANE-}" ] && command -v tmux >/dev/null 2>&1; then
+    style=${CLAUDE_TEAM_TMUX_STYLE:-bg=#2b1a3a}
+    case $0 in /*) self=$0 ;; *) self=$PWD/$0 ;; esac
+    if [ "$style" = none ]; then
+      styled=0
+      tmux set-option -p -t "$TMUX_PANE" @claude_team_pid "$$" \; \
+        set-option -p -t "$TMUX_PANE" @claude_profile team >/dev/null 2>&1
+    else
+      styled=1
+      tmux set-option -p -t "$TMUX_PANE" window-style "$style" \; \
+        set-option -p -t "$TMUX_PANE" window-active-style "$style" \; \
+        set-option -p -t "$TMUX_PANE" @claude_team_pid "$$" \; \
+        set-option -p -t "$TMUX_PANE" @claude_profile team >/dev/null 2>&1
+    fi && tmux run-shell -b "'$self' --claude-team-tmux-restore '${TMUX%%,*}' '$TMUX_PANE' $$ $styled" >/dev/null 2>&1
+  fi
+fi
+
+# exec 让 claude 直接接替本进程（PID 不变），Ctrl-Z 挂起、信号和退出码都和直接运行 claude 一样
+exec claude "$@"
