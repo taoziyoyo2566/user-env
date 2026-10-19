@@ -64,6 +64,7 @@ tm "$H" kill-server 2>/dev/null
 
 echo "## U3 --nerd-font, then back"
 run "$H" --only tmux --nerd-font > /dev/null 2>&1; ok "nerd variant: no overrides, comment present" "! grep -qF 'catppuccin_application_icon' '$H/.tmux.conf' && grep -qF -- '--nerd-font' '$H/.tmux.conf'"
+sleep 1   # 备份名精确到秒：同一秒内再运行一次会沿用已有的备份名、不再另做备份，这里要的是第二份备份
 run "$H" --only tmux > /dev/null 2>&1; ok "plain again, 2 backups now" "grep -qF 'catppuccin_application_icon' '$H/.tmux.conf' && [ \$(bak '$H/.tmux.conf') -eq 2 ]"
 tm "$H" kill-server 2>/dev/null
 
