@@ -43,6 +43,8 @@ bash ~/user-env/setup-terminal-env.sh --check    # 只读检查：全是 [OK] �
 - 终端字体是 Nerd Font、想保留 tmux 状态栏图标时，安装加 `--nerd-font`。
 - 已经开着的终端执行一次 `exec bash`（zsh 用 `exec zsh`）后生效；新终端自动生效。
 - tmux 正在运行时，安装脚本会自动重新加载配置，已有会话不受影响。
+- 新机器第一次启动 tmux 时会提示 `Tmux resurrect file not found!`：还没保存过会话，没有可恢复的，属于正常。
+  tmux 开着 15 分钟后会自动保存第一次（或按 `Ctrl+a Ctrl+s` 立即保存），之后启动就不再提示。
 - 第一次运行 `claude-team` 时登录 Team 组织，进去后用 `/status` 确认。
 
 ## 日常使用（速查）
