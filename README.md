@@ -88,7 +88,12 @@ bash ~/user-env/setup-terminal-env.sh --check    # 只读检查：全是 [OK] �
 在源机器上改 `files/` 里的内容，拷到目标机器，再运行一次 `setup-terminal-env.sh`：
 有变化的文件先备份为 `<文件>.bak.<时间>` 再覆盖，没变化的不动。
 
-`setup-terminal-env.sh --check` 会指出哪些文件和 user-env 不一致（手动改过，或 user-env 有更新）。
+tmux 插件：`files/tmux.conf` 里固定了版本的（目前是 catppuccin，写成 `catppuccin/tmux#v2.3.2`），
+换版本就改这里的 tag 再运行安装脚本，已装的旧版本会被换掉；`Ctrl+a U` 换不了固定的版本。
+其余插件装的是安装时的最新代码，用 `Ctrl+a U` 更新。
+
+`setup-terminal-env.sh --check` 会指出哪些文件和 user-env 不一致（手动改过，或 user-env 有更新），
+以及哪些插件不是固定的版本。
 
 ## 命令一览
 
@@ -105,7 +110,7 @@ bash setup-terminal-env.sh --uninstall           # 撤销 prompt、claude-team �
 
 | 模块 | 改动 |
 |---|---|
-| `tmux` | 用 `files/tmux.conf` 生成 `~/.tmux.conf`；安装 TPM 和插件；tmux 正在运行时重新加载；安装 tmux 的 bash 补全到 `~/.local/share/bash-completion/completions/tmux`（`tmux a -t <Tab>` 列出会话名；zsh 自带 tmux 补全，不需要它） |
+| `tmux` | 用 `files/tmux.conf` 生成 `~/.tmux.conf`；安装 TPM 和插件，已装的插件不是固定的版本时换成固定的版本；tmux 正在运行时重新加载；安装 tmux 的 bash 补全到 `~/.local/share/bash-completion/completions/tmux`（`tmux a -t <Tab>` 列出会话名；zsh 自带 tmux 补全，不需要它） |
 | `prompt` | 在 `~/.bashrc` / `~/.zshrc` 里写入 `# >>> tmux-prompt >>>` 标记的一段：在 tmux 里时提示符前显示绿底 `tmux:会话名` |
 | `claude-team` | 安装 `~/.local/bin/claude-team`；建 `~/.claude-team`（权限 700）；在 `~/.claude-team/settings.json` 设 TEAM 状态栏；`~/.local/bin` 不在 PATH 时在 rc 文件里加 `# >>> user-env-path >>>` 一段 |
 
@@ -126,7 +131,8 @@ bash tests/test-linux.sh        # Linux 上的完整测试，每个用例用独�
 bash tests/test-macos-shells.sh   # 用容器模拟 macOS 的 bash 3.2 和 zsh 5.9（需要 docker，会临时拉镜像）
 ```
 
-两者都要求本机已经运行过一次 `setup-terminal-env.sh --only tmux`（复用已下载的插件）。
+两者都要求本机已经运行过一次 `setup-terminal-env.sh --only tmux`（复用已下载的插件）；
+改了插件的固定版本后，先在本机再运行一次，`test-linux.sh` 会检查本机插件是不是固定的版本。
 容器测试不能代替真正的 Mac：在 Mac 上部署后的检查见「部署到一台新机器」第 3 步。
 
 ## 文件

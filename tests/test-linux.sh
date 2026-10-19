@@ -12,6 +12,14 @@ U=$(cd "$(dirname "$0")/.." && pwd)
 PLUGINS=$HOME/.tmux/plugins
 [ -d "$PLUGINS/tpm" ] || { echo "先在本机运行一次：bash $U/setup-terminal-env.sh --only tmux"; exit 2; }
 for c in tmux git jq python3; do command -v "$c" >/dev/null || { echo "缺少 $c"; exit 2; }; done
+# 测试复用本机插件、不联网下载，所以本机插件要正是 files/tmux.conf 固定的版本（每行「owner/repo 版本」）
+PINNED=$(sed -n "s/^set -g @plugin '\([^'#]*\)#\([^']*\)'.*/\1 \2/p" "$U/files/tmux.conf")
+while read -r repo ref; do
+  [ -n "$repo" ] || continue
+  h=$(git -C "$PLUGINS/${repo##*/}" rev-parse -q --verify HEAD 2>/dev/null)
+  [ -n "$h" ] && [ "$(git -C "$PLUGINS/${repo##*/}" rev-parse -q --verify "refs/tags/$ref^{commit}" 2>/dev/null)" = "$h" ] \
+    || { echo "本机插件 ${repo##*/} 不是 files/tmux.conf 固定的 $ref，先在本机运行一次：bash $U/setup-terminal-env.sh --only tmux"; exit 2; }
+done <<< "$PINNED"
 T=$(mktemp -d "${TMPDIR:-/tmp}/user-env-test.XXXXXX")
 SOCKROOT=$(mktemp -d /tmp/ue.XXXXXX)   # tmux socket 路径有长度上限，所以 socket 目录放在 /tmp 下的短路径里
 FAILS=0
@@ -156,6 +164,22 @@ out=$(env -i HOME="$H" PATH="$H/fakebin:$nojq" SHELL=/bin/bash TMUX_TMPDIR="$(re
 ok "missing jq: exit 1, names jq + install command, nothing written" "[ $rc -ne 0 ] && echo \"\$out\" | grep -q 'jq' && echo \"\$out\" | grep -qF 'apt install' && [ ! -e '$H/.tmux.conf' ] && [ \"\$(sha256sum < '$H/.bashrc')\" = \"$c0\" ]"
 out=$(env -i HOME="$H" PATH="$H/fakebin:$nojq" SHELL=/bin/bash TMUX_TMPDIR="$(readlink "$H/tt")" LANG=en_US.UTF-8 bash "$U/setup-terminal-env.sh" --skip claude-team 2>&1); rc=$?
 ok "same machine with --skip claude-team: jq not needed, install succeeds" "[ $rc -eq 0 ] && [ -f '$H/.tmux.conf' ]"
+
+echo "## U15 pinned plugin at another version is replaced"
+# 用 ~/.gitconfig 的 insteadOf 把 TPM 的 GitHub 地址指到本地镜像，不联网
+read -r PIN_REPO PIN_REF <<< "$PINNED"; PIN=${PIN_REPO##*/}
+H=$(mkhome u15); run "$H" --only tmux > "$T/u15.out" 2>&1; rc=$?
+ok "already at the pinned version: left alone" "[ $rc -eq 0 ] && ! grep -qF '换成固定的' '$T/u15.out'"
+git -c init.defaultBranch=main clone -q --bare "$PLUGINS/$PIN" "$T/mirror/$PIN_REPO"
+git -C "$H/.tmux/plugins/$PIN" -c user.name=t -c user.email=t commit -q --allow-empty -m drift
+run "$H" --check --only tmux > "$T/u15b.out" 2>&1; rc=$?
+ok "--check: exit 1, names the pinned version" "[ $rc -eq 1 ] && grep -qF '不是 files/tmux.conf 固定的 $PIN_REF' '$T/u15b.out'"
+printf '[url "file://%s/none/"]\n\tinsteadOf = https://git::@github.com/\n' "$T" > "$H/.gitconfig"
+run "$H" --only tmux > "$T/u15c.out" 2>&1; rc=$?
+ok "download fails: non-zero exit, old plugin put back" "[ $rc -ne 0 ] && grep -qF '已放回原来的插件' '$T/u15c.out' && [ \"\$(git -C '$H/.tmux/plugins/$PIN' log -1 --format=%s)\" = drift ]"
+printf '[url "file://%s/mirror/"]\n\tinsteadOf = https://git::@github.com/\n' "$T" > "$H/.gitconfig"
+run "$H" --only tmux > "$T/u15d.out" 2>&1; rc=$?
+ok "replaced by the pinned version, --check passes" "[ $rc -eq 0 ] && grep -qF '换成固定的 $PIN_REF' '$T/u15d.out' && [ \"\$(git -C '$H/.tmux/plugins/$PIN' rev-parse HEAD)\" = \"\$(git -C '$PLUGINS/$PIN' rev-parse HEAD)\" ] && run '$H' --check --only tmux >/dev/null 2>&1"
 
 echo
 if [ "$FAILS" -eq 0 ]; then echo "全部通过"; else echo "失败 $FAILS 项"; exit 1; fi

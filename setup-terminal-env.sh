@@ -198,13 +198,26 @@ render_tmux_conf() {
   ' "$FILES/tmux.conf"
 }
 
-# files/tmux.conf 里声明的插件目录名（'catppuccin/tmux#v2.3.1' 的目录是 tmux）
+# files/tmux.conf 里声明的插件目录名（'catppuccin/tmux#v2.3.2' 的目录是 tmux）
 tmux_plugin_dirs() {
   sed -n "s/^set -g @plugin '\([^']*\)'.*/\1/p" "$FILES/tmux.conf" | sed 's/#.*//; s|.*/||'
 }
 
+# files/tmux.conf 里固定了版本的插件，每行输出「目录名 版本」（'catppuccin/tmux#v2.3.2' 输出 tmux v2.3.2）
+tmux_pinned_plugins() {
+  sed -n "s/^set -g @plugin '\([^'#]*\)#\([^']*\)'.*/\1 \2/p" "$FILES/tmux.conf" | sed 's|^[^ ]*/||'
+}
+
+# 已装的插件是否正是固定的版本：$1 目录名  $2 tag 或分支
+tmux_pinned_ok() {
+  local d=$HOME/.tmux/plugins/$1 head
+  head=$(git -C "$d" rev-parse -q --verify HEAD 2>/dev/null) || return 1
+  [ "$(git -C "$d" rev-parse -q --verify "refs/tags/$2^{commit}" 2>/dev/null)" = "$head" ] \
+    || [ "$(git -C "$d" symbolic-ref -q --short HEAD 2>/dev/null)" = "$2" ]
+}
+
 tmux_install() {
-  local tmp dir running=0
+  local tmp dir name ref moved="" running=0
   echo "== tmux"
   [ -d "$HOME/.tmux/plugins/tpm" ] || git clone -q https://github.com/tmux-plugins/tpm "$HOME/.tmux/plugins/tpm"
 
@@ -226,10 +239,24 @@ tmux_install() {
   if [ "$running" -eq 1 ]; then
     tmux set-environment -g TMUX_PLUGIN_MANAGER_PATH "$HOME/.tmux/plugins/" 2>/dev/null || true
   fi
+  # TPM 只装缺的插件，prefix+U 也换不了固定的版本：files/tmux.conf 改了版本时先把旧的挪开，
+  # 让 TPM 按新版本重新装；装不上就放回去，tmux 照旧能用
+  while read -r name ref; do
+    { [ -n "$name" ] && [ -d "$HOME/.tmux/plugins/$name" ]; } || continue
+    tmux_pinned_ok "$name" "$ref" && continue
+    mv "$HOME/.tmux/plugins/$name" "$WORK/plugin-$name"
+    moved="$moved $name"
+    echo "  插件 $name 换成固定的 $ref"
+  done < <(tmux_pinned_plugins)
   # TPM 回退用的 https://git::@github.com/... 会让 git 把凭据交给 credential helper（macOS 上是钥匙串，可能弹窗卡住）；
   # 公开仓库不需要凭据，用空值重置 helper 列表（git >= 2.31，更老的 git 忽略这几个变量，行为不变）
   if ! GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=credential.helper GIT_CONFIG_VALUE_0='' \
        "$HOME/.tmux/plugins/tpm/bin/install_plugins" >/dev/null; then
+    for name in $moved; do
+      rm -rf "${HOME:?}/.tmux/plugins/$name"
+      mv "$WORK/plugin-$name" "$HOME/.tmux/plugins/$name"
+      echo "  已放回原来的插件 $name"
+    done
     die "tmux 插件安装失败（需要能访问 github.com），~/.tmux.conf 已写好，网络恢复后重新运行即可"
   fi
   echo "  插件已就绪"
@@ -451,7 +478,7 @@ block_body() {  # $1 文件  $2 名称：输出标记之间的内容
 }
 
 tmux_check() {
-  local d missing="" out
+  local d name ref missing="" out
   echo "== tmux"
   if ! command -v tmux >/dev/null 2>&1; then
     fail "没有安装 tmux（$(pkg_hint tmux)）"
@@ -476,6 +503,14 @@ tmux_check() {
     [ -d "$HOME/.tmux/plugins/$d" ] || missing="$missing $d"
   done
   if [ -z "$missing" ]; then pass "插件都已安装"; else fail "缺少插件：${missing# }（运行 setup-terminal-env.sh）"; fi
+  while read -r name ref; do
+    { [ -n "$name" ] && [ -d "$HOME/.tmux/plugins/$name" ]; } || continue
+    if tmux_pinned_ok "$name" "$ref"; then
+      pass "插件 $name 是固定的 $ref"
+    else
+      fail "插件 $name 不是 files/tmux.conf 固定的 $ref（运行 setup-terminal-env.sh 更新）"
+    fi
+  done < <(tmux_pinned_plugins)
 
   if [ ! -f "$TMUX_COMPLETION" ]; then
     fail "tmux 补全未安装：$TMUX_COMPLETION（运行 setup-terminal-env.sh）"

@@ -24,7 +24,8 @@ bash tests/test-macos-shells.sh      # 需要 docker 和网络；临时拉 bash:
 ```
 
 两个测试都要求本机已经运行过一次 `setup-terminal-env.sh --only tmux`（复用
-`~/.tmux/plugins`）；`test-linux.sh` 还需要 tmux、git、jq、python3、bash-completion。
+`~/.tmux/plugins`），改了 `files/tmux.conf` 里插件的固定版本后要在本机重新运行一次；
+`test-linux.sh` 还需要 tmux、git、jq、python3、bash-completion。
 容器测试代替不了真正的 Mac。
 
 ## 约束
