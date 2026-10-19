@@ -39,6 +39,7 @@ bash ~/user-env/setup-terminal-env.sh            # 不用 claude-team 的机器�
 bash ~/user-env/setup-terminal-env.sh --check    # 只读检查：全是 [OK] 就对了；[--] 只是提示，[!!] 需要处理
 ```
 
+- Mac 上这一步的 `--check` 不能省：容器测试只模拟了 bash 3.2 和 zsh 5.9，覆盖不到 macOS 自带的命令行工具。
 - 终端字体是 Nerd Font、想保留 tmux 状态栏图标时，安装加 `--nerd-font`。
 - 已经开着的终端执行一次 `exec bash`（zsh 用 `exec zsh`）后生效；新终端自动生效。
 - tmux 正在运行时，安装脚本会自动重新加载配置，已有会话不受影响。
@@ -126,7 +127,7 @@ bash tests/test-macos-shells.sh   # 用容器模拟 macOS 的 bash 3.2 和 zsh 5
 ```
 
 两者都要求本机已经运行过一次 `setup-terminal-env.sh --only tmux`（复用已下载的插件）。
-容器测试不能代替真正的 Mac：第一次在 Mac 上部署时，装完跑一次 `--check`。
+容器测试不能代替真正的 Mac：在 Mac 上部署后的检查见「部署到一台新机器」第 3 步。
 
 ## 文件
 
