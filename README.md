@@ -22,9 +22,15 @@ brew install bash-completion@2     # 只有登录 shell 是 bash 时才需要，
 - 要用 claude-team 的机器还需要先装好 Claude Code；不用的机器安装时加 `--skip claude-team`，也就不需要 jq。
 - 依赖缺了什么，安装脚本会在改动任何文件之前一次列出来，并给出安装命令。
 
-### 2. 把 user-env 拷到目标机器
+### 2. 把 user-env 放到目标机器
 
-在已有 user-env 的机器上执行（`HOST` 换成目标机器的 SSH 名称）：
+目标机器能访问 GitHub 时，在目标机器上克隆（公开仓库，不需要登录）：
+
+```bash
+git clone https://github.com/taoziyoyo2566/user-env.git ~/user-env
+```
+
+不能访问 GitHub 时，在已有 user-env 的机器上拷过去（`HOST` 换成目标机器的 SSH 名称）：
 
 ```bash
 rsync -a ~/workspace/projects/user-env/ HOST:~/user-env/
@@ -87,7 +93,8 @@ bash ~/user-env/setup-terminal-env.sh --check    # 只读检查：全是 [OK] �
 
 ## 更新
 
-在源机器上改 `files/` 里的内容，拷到目标机器，再运行一次 `setup-terminal-env.sh`：
+在源机器上改 `files/` 里的内容，提交并推送到 GitHub；目标机器上执行 `git -C ~/user-env pull`
+（拷过去的机器就重新拷一次），再运行一次 `setup-terminal-env.sh`：
 有变化的文件先备份为 `<文件>.bak.<时间>` 再覆盖，没变化的不动。
 
 tmux 插件：`files/tmux.conf` 里固定了版本的（目前是 catppuccin，写成 `catppuccin/tmux#v2.3.2`），
@@ -155,7 +162,7 @@ tests/test-macos-shells.sh               bash 3.2 / zsh 5.9 容器测试
 
 ## 以后改用 Ansible
 
-计划（2026-10-16）：先作为独立配置保存在这里，不进任何仓库；以后可能并入 saberu 项目，用 Ansible 统一配置。
+计划（2026-10-16）：先作为独立仓库维护（2026-10-20 起公开在 GitHub：`taoziyoyo2566/user-env`）；以后可能并入 saberu 项目，用 Ansible 统一配置。
 只支持 Debian 系和 macOS。
 
 `files/` 里的内容可以直接复用，安装逻辑对应：

@@ -31,7 +31,7 @@ bash tests/test-macos-shells.sh      # 需要 docker 和网络；临时拉 bash:
 ## 约束
 
 - 在本机不带 `--check` 运行 `setup-terminal-env.sh`（安装、更新、`--uninstall`）会改
-  操作者真实的家目录和正在运行的 tmux；部署到其他机器（拷过去再运行）是改外部主机。
+  操作者真实的家目录和正在运行的 tmux；部署到其他机器（克隆或拷过去再运行）是改外部主机。
   两者都要先得到操作者授权。验证改动用 `tests/` 和 `--check`。
 - 保持脚本的这些性质：只改家目录、不需要 root；可以重复运行；内容没变就不写，变了先备份为
   `<文件>.bak.<时间>`；不覆盖不是本脚本装的文件。
@@ -56,8 +56,10 @@ bash tests/test-macos-shells.sh      # 需要 docker 和网络；临时拉 bash:
 
 ## Git
 
-- 主分支 `main`；没有远程仓库（README：先作为独立配置保存在这里，不进任何仓库）。
+- 主分支 `main`；远程仓库 `origin` 是 GitHub 公开库
+  `https://github.com/taoziyoyo2566/user-env`，其他机器从这里克隆。仓库公开：不要提交密钥、
+  主机名、IP 或其他只属于某台机器的信息。
 - 提交信息沿用已有风格：`类型: 中文描述`，如 `feat:`、`docs:`。
 - 每个改动在从 `main` 拉出的短期分支上提交；分支名以和提交信息相同的类型开头，如
   `docs/`、`feat/`，后面跟主题。
-- 合并方式：快进合并（`git merge --ff-only`）到 `main`。
+- 合并方式：快进合并（`git merge --ff-only`）到 `main`，再把 `main` 推送到 `origin`。
